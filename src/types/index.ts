@@ -5,28 +5,30 @@ export interface User {
 }
 
 export interface PolicyParams {
-  fuelTax: number         // 0-20%
-  transportSubsidy: number // 0-30%
-  carbonTax: number       // 0-100 $/ton
-  evSubsidy: number       // 0-50%
-  gdpGrowth: number       // 0-5%
-  baseInflation: number   // 0-10%
+  taxRate: number         // 0-50%
+  subsidyAmount: number   // 0-30%
+  fuelPrice: number       // 1-10 $/unit
+  publicSpending: number  // 0-50%
+  interestRate: number    // 0-15%
+  envRegulation: number   // 0-100 score
 }
 
 export interface SimulationResult {
-  inflationChange: number
-  transportCostChange: number
-  emissionsChange: number
-  gdpChange: number
+  gdpGrowth: number
+  inflation: number
+  employmentRate: number
+  envImpact: number
+  satisfaction: number
   confidenceScore: number
   riskLevel: 'low' | 'medium' | 'high'
   insights: string[]
   projectionData: Array<{
     month: string
-    inflation: number
-    transportCost: number
-    emissions: number
     gdp: number
+    inflation: number
+    employment: number
+    env: number
+    satisfaction: number
   }>
 }
 
@@ -34,16 +36,20 @@ export interface Simulation {
   id: string
   userId: string
   name: string
-  fuelTax: number
-  transportSubsidy: number
-  carbonTax: number
-  evSubsidy: number
-  gdpGrowth: number
-  baseInflation: number
-  predictedInflationChange: number
-  predictedEmissionsChange: number
-  predictedTransportCostChange: number
-  predictedGdpChange: number
+  // Inputs
+  taxRate: number
+  subsidyAmount: number
+  fuelPrice: number
+  publicSpending: number
+  interestRate: number
+  envRegulation: number
+  // Outputs
+  predictedGdp: number
+  predictedInflation: number
+  predictedEmployment: number
+  predictedEnvImpact: number
+  predictedSatisfaction: number
+  // Metadata
   confidenceScore: number
   riskLevel: string
   insights: string
@@ -73,13 +79,3 @@ export interface EconomicIndicator {
   carbonEmissions: number
   country: string
 }
-
-// Historical economic data for charts
-export const HISTORICAL_DATA: EconomicIndicator[] = [
-  { year: 2019, gdp: 21433, inflation: 2.3, fuelPrice: 2.60, transportCost: 100, carbonEmissions: 5.1, country: 'USA' },
-  { year: 2020, gdp: 20893, inflation: 1.2, fuelPrice: 2.17, transportCost: 88, carbonEmissions: 4.5, country: 'USA' },
-  { year: 2021, gdp: 23315, inflation: 4.7, fuelPrice: 3.27, transportCost: 105, carbonEmissions: 4.9, country: 'USA' },
-  { year: 2022, gdp: 25463, inflation: 8.0, fuelPrice: 3.95, transportCost: 124, carbonEmissions: 5.0, country: 'USA' },
-  { year: 2023, gdp: 27360, inflation: 4.1, fuelPrice: 3.53, transportCost: 118, carbonEmissions: 4.9, country: 'USA' },
-  { year: 2024, gdp: 28781, inflation: 2.9, fuelPrice: 3.30, transportCost: 112, carbonEmissions: 4.8, country: 'USA' },
-]

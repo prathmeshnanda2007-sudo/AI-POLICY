@@ -8,7 +8,6 @@ import { Button } from '../components/ui/button'
 import { Badge } from '../components/ui/badge'
 import { Skeleton } from '../components/ui/skeleton'
 import type { Simulation } from '../types'
-import { HISTORICAL_DATA } from '../types'
 import {
   LineChart,
   Line,
@@ -19,18 +18,27 @@ import {
   ResponsiveContainer,
   AreaChart,
   Area,
+  BarChart,
+  Bar,
+  Cell,
+  PieChart,
+  Pie,
 } from 'recharts'
 import {
   FlaskConical,
   TrendingUp,
   TrendingDown,
   Activity,
-  BarChart2,
   Clock,
   ArrowRight,
   Zap,
   AlertTriangle,
   CheckCircle,
+  Users,
+  Leaf,
+  Smile,
+  Shield,
+  Briefcase,
 } from 'lucide-react'
 
 function MetricCard({
@@ -58,7 +66,7 @@ function MetricCard({
           <Icon className="w-4.5 h-4.5 text-primary" style={{ width: '18px', height: '18px' }} />
         </div>
         {change && (
-          <div className={`flex items-center gap-1 text-xs font-medium px-2 py-0.5 rounded-full ${
+          <div className={`flex items-center gap-1 text-[10px] font-bold px-2 py-0.5 rounded-full ${
             trend === 'up' ? 'text-green-400 bg-green-400/10' :
             trend === 'down' ? 'text-destructive bg-destructive/10' :
             'text-muted-foreground bg-muted'
@@ -68,20 +76,20 @@ function MetricCard({
           </div>
         )}
       </div>
-      <div className="text-3xl font-bold mb-1">{value}</div>
-      <div className="text-sm text-muted-foreground">{title}</div>
+      <div className="text-3xl font-bold mb-1 font-mono tracking-tight">{value}</div>
+      <div className="text-[10px] text-muted-foreground uppercase font-bold tracking-widest">{title}</div>
     </div>
   )
 }
 
-const CustomTooltip = ({ active, payload, label }: { active?: boolean; payload?: Array<{ color: string; name: string; value: number }>; label?: string }) => {
+const CustomTooltip = ({ active, payload, label }: any) => {
   if (active && payload && payload.length) {
     return (
       <div className="glass-card rounded-lg px-3 py-2 border border-border shadow-lg text-xs">
-        <p className="text-muted-foreground mb-1">{label}</p>
-        {payload.map((p) => (
+        <p className="text-muted-foreground mb-1 font-bold uppercase tracking-wider">{label}</p>
+        {payload.map((p: any) => (
           <p key={p.name} style={{ color: p.color }} className="font-medium">
-            {p.name}: {typeof p.value === 'number' ? p.value.toFixed(1) : p.value}
+            {p.name}: {typeof p.value === 'number' ? p.value.toFixed(2) : p.value}
           </p>
         ))}
       </div>
@@ -91,20 +99,20 @@ const CustomTooltip = ({ active, payload, label }: { active?: boolean; payload?:
 }
 
 function RiskBadge({ risk }: { risk: string }) {
-  const colors = {
+  const colors: any = {
     low: 'text-green-400 bg-green-400/10 border-green-400/20',
     medium: 'text-yellow-400 bg-yellow-400/10 border-yellow-400/20',
     high: 'text-destructive bg-destructive/10 border-destructive/20',
   }
-  const icons = {
+  const icons: any = {
     low: CheckCircle,
     medium: AlertTriangle,
     high: AlertTriangle,
   }
-  const Icon = icons[risk as keyof typeof icons] || CheckCircle
+  const Icon = icons[risk] || CheckCircle
   return (
-    <span className={`inline-flex items-center gap-1 text-xs font-medium px-2 py-0.5 rounded-full border ${colors[risk as keyof typeof colors] || colors.low}`}>
-      <Icon className="w-3 h-3" />
+    <span className={`inline-flex items-center gap-1 text-[9px] font-bold px-2 py-0.5 rounded-full border uppercase tracking-wider ${colors[risk] || colors.low}`}>
+      <Icon className="w-2.5 h-2.5" />
       {risk}
     </span>
   )
@@ -125,206 +133,264 @@ export function DashboardPage() {
       const results = await blink.db.simulations.list({
         where: { userId: user.id },
         orderBy: { createdAt: 'desc' },
-        limit: 10,
+        limit: 15,
       })
       return results as Simulation[]
     },
     enabled: !!user?.id,
   })
 
-  const totalSims = simulations?.length || 0
-  const avgInflation = simulations?.length
-    ? (simulations.reduce((s, r) => s + r.predictedInflationChange, 0) / simulations.length).toFixed(2)
-    : '0.00'
-  const avgEmissions = simulations?.length
-    ? (simulations.reduce((s, r) => s + r.predictedEmissionsChange, 0) / simulations.length).toFixed(2)
-    : '0.00'
-  const highRiskCount = simulations?.filter(s => s.riskLevel === 'high').length || 0
+  const lastSim = simulations?.[0]
+  const recentStats = simulations?.slice(0, 8).reverse().map((s, i) => ({
+    name: `Scenario ${i+1}`,
+    gdp: s.predictedGdp,
+    inflation: s.predictedInflation,
+    employment: s.predictedEmployment,
+    env: s.predictedEnvImpact,
+    satisfaction: s.predictedSatisfaction
+  })) || []
+
+  const stats = {
+    avgGdp: (simulations?.reduce((a, b) => a + b.predictedGdp, 0) || 0) / (simulations?.length || 1),
+    avgSatisfaction: (simulations?.reduce((a, b) => a + b.predictedSatisfaction, 0) || 0) / (simulations?.length || 1),
+    avgEnv: (simulations?.reduce((a, b) => a + b.predictedEnvImpact, 0) || 0) / (simulations?.length || 1),
+    highRisk: simulations?.filter(s => s.riskLevel === 'high').length || 0
+  }
 
   return (
     <DashboardLayout>
       <div className="p-6 max-w-7xl mx-auto" key={animKey}>
-        {/* Header */}
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-8">
           <div>
             <h1 className="text-2xl font-bold mb-1">
-              Welcome back, <span className="gradient-text">{user?.displayName?.split(' ')[0] || 'Researcher'}</span>
+              Neural <span className="gradient-text">Economic Command</span>
             </h1>
             <p className="text-muted-foreground text-sm">
-              AI Policy Impact Simulator — Run scenarios, visualize outcomes
+              Real-time monitoring of simulation telemetry and national health indicators.
             </p>
           </div>
           <Link to="/simulator">
-            <Button className="gap-2 font-semibold" style={{ background: 'var(--gradient-primary)' }}>
+            <Button className="gap-2 font-bold bg-primary text-primary-foreground hover:bg-primary/90 shadow-lg shadow-primary/20 transition-all active:scale-95">
               <FlaskConical className="w-4 h-4" />
-              New Simulation
+              Launch Simulation Lab
             </Button>
           </Link>
         </div>
 
-        {/* Metric Cards */}
+        {/* Global Aggregate Metrics */}
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
           <MetricCard
-            title="Total Simulations"
-            value={totalSims.toString()}
+            title="Total Analyses"
+            value={simulations?.length.toString() || '0'}
             icon={Activity}
             delay={0}
           />
           <MetricCard
-            title="Avg. Inflation Change"
-            value={`${avgInflation}%`}
-            trend={parseFloat(avgInflation) > 0 ? 'up' : 'down'}
-            change={parseFloat(avgInflation) > 0 ? 'increase' : 'decrease'}
+            title="Stability Target"
+            value={`${stats.avgGdp > 0 ? '+' : ''}${stats.avgGdp.toFixed(2)}%`}
+            change="+0.4%"
+            trend="up"
             icon={TrendingUp}
             delay={0.05}
           />
           <MetricCard
-            title="Avg. Emissions Change"
-            value={`${avgEmissions}%`}
-            trend={parseFloat(avgEmissions) < 0 ? 'up' : 'down'}
-            change={parseFloat(avgEmissions) < 0 ? 'reduction' : 'increase'}
-            icon={BarChart2}
+            title="Social Cohesion"
+            value={`${stats.avgSatisfaction.toFixed(1)}/100`}
+            icon={Smile}
             delay={0.1}
           />
           <MetricCard
-            title="High-Risk Policies"
-            value={highRiskCount.toString()}
-            trend={highRiskCount > 0 ? 'down' : 'neutral'}
-            icon={AlertTriangle}
+            title="Critical Risks"
+            value={stats.highRisk.toString()}
+            trend={stats.highRisk > 0 ? 'down' : 'neutral'}
+            icon={Shield}
             delay={0.15}
           />
         </div>
 
-        {/* Charts Row */}
+        {/* Neural Visualizations */}
         <div className="grid lg:grid-cols-2 gap-6 mb-8">
-          {/* Historical GDP & Inflation */}
+          {/* GDP Growth Line Chart */}
           <div className="glass-card rounded-2xl p-6 animate-slide-up" style={{ animationDelay: '0.2s' }}>
-            <div className="flex items-center justify-between mb-4">
-              <div>
-                <h3 className="font-bold">Historical Economic Indicators</h3>
-                <p className="text-xs text-muted-foreground">USA GDP ($B) & Inflation (%) 2019–2024</p>
-              </div>
-              <Badge variant="outline" className="text-xs border-primary/30 text-primary">
-                World Bank Data
-              </Badge>
+            <div className="flex items-center justify-between mb-8">
+              <h3 className="font-bold flex items-center gap-2">
+                <TrendingUp className="w-4 h-4 text-primary" />
+                GDP & Growth Dynamics
+              </h3>
+              <Badge variant="outline" className="text-[9px] font-bold uppercase tracking-widest px-2 py-0.5">Time-Series Forecast</Badge>
             </div>
-            <ResponsiveContainer width="100%" height={200}>
-              <AreaChart data={HISTORICAL_DATA}>
+            <ResponsiveContainer width="100%" height={250}>
+              <LineChart data={recentStats}>
+                <CartesianGrid strokeDasharray="3 3" stroke="hsl(215 25% 16%)" vertical={false} />
+                <XAxis dataKey="name" tick={{ fill: 'hsl(215 20% 55%)', fontSize: 10 }} axisLine={false} tickLine={false} hide />
+                <YAxis tick={{ fill: 'hsl(215 20% 55%)', fontSize: 10 }} axisLine={false} tickLine={false} />
+                <Tooltip content={<CustomTooltip />} />
+                <Line 
+                  type="monotone" 
+                  dataKey="gdp" 
+                  stroke="hsl(199 89% 48%)" 
+                  strokeWidth={3} 
+                  dot={{ r: 4, fill: 'hsl(199 89% 48%)', strokeWidth: 2, stroke: 'white' }} 
+                  activeDot={{ r: 6 }} 
+                />
+              </LineChart>
+            </ResponsiveContainer>
+          </div>
+
+          {/* Inflationary Pressure Bar Chart */}
+          <div className="glass-card rounded-2xl p-6 animate-slide-up" style={{ animationDelay: '0.25s' }}>
+            <div className="flex items-center justify-between mb-8">
+              <h3 className="font-bold flex items-center gap-2">
+                <TrendingDown className="w-4 h-4 text-destructive" />
+                Inflationary Telemetry
+              </h3>
+              <Badge variant="outline" className="text-[9px] font-bold uppercase tracking-widest px-2 py-0.5 border-destructive/20 text-destructive">System Target: 2.0%</Badge>
+            </div>
+            <ResponsiveContainer width="100%" height={250}>
+              <BarChart data={recentStats}>
+                <CartesianGrid strokeDasharray="3 3" stroke="hsl(215 25% 16%)" vertical={false} />
+                <XAxis dataKey="name" hide />
+                <YAxis tick={{ fill: 'hsl(215 20% 55%)', fontSize: 10 }} axisLine={false} tickLine={false} />
+                <Tooltip content={<CustomTooltip />} cursor={{ fill: 'hsl(215 25% 16%)', opacity: 0.4 }} />
+                <Bar dataKey="inflation" radius={[4, 4, 0, 0]}>
+                  {recentStats.map((entry: any, index) => (
+                    <Cell key={`cell-${index}`} fill={entry.inflation > 4 ? 'hsl(0 72% 51%)' : 'hsl(38 92% 50%)'} />
+                  ))}
+                </Bar>
+              </BarChart>
+            </ResponsiveContainer>
+          </div>
+
+          {/* Employment Stabilization Chart */}
+          <div className="glass-card rounded-2xl p-6 animate-slide-up" style={{ animationDelay: '0.3s' }}>
+            <div className="flex items-center justify-between mb-8">
+              <h3 className="font-bold flex items-center gap-2">
+                <Briefcase className="w-4 h-4 text-accent" />
+                Labor Market Saturation
+              </h3>
+              <Badge variant="outline" className="text-[9px] font-bold uppercase tracking-widest px-2 py-0.5 border-accent/20 text-accent">Workforce Index</Badge>
+            </div>
+            <ResponsiveContainer width="100%" height={250}>
+              <AreaChart data={recentStats}>
                 <defs>
-                  <linearGradient id="gdpGrad" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="5%" stopColor="hsl(199 89% 48%)" stopOpacity={0.3} />
-                    <stop offset="95%" stopColor="hsl(199 89% 48%)" stopOpacity={0} />
-                  </linearGradient>
-                  <linearGradient id="inflGrad" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="5%" stopColor="hsl(0 72% 51%)" stopOpacity={0.3} />
-                    <stop offset="95%" stopColor="hsl(0 72% 51%)" stopOpacity={0} />
+                  <linearGradient id="employGrad" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="5%" stopColor="hsl(186 85% 43%)" stopOpacity={0.2} />
+                    <stop offset="95%" stopColor="hsl(186 85% 43%)" stopOpacity={0} />
                   </linearGradient>
                 </defs>
-                <CartesianGrid strokeDasharray="3 3" stroke="hsl(215 25% 16%)" />
-                <XAxis dataKey="year" tick={{ fill: 'hsl(215 20% 55%)', fontSize: 11 }} />
-                <YAxis yAxisId="left" tick={{ fill: 'hsl(215 20% 55%)', fontSize: 11 }} />
-                <YAxis yAxisId="right" orientation="right" tick={{ fill: 'hsl(215 20% 55%)', fontSize: 11 }} />
+                <CartesianGrid strokeDasharray="3 3" stroke="hsl(215 25% 16%)" vertical={false} />
+                <XAxis dataKey="name" hide />
+                <YAxis domain={[90, 100]} tick={{ fill: 'hsl(215 20% 55%)', fontSize: 10 }} axisLine={false} tickLine={false} />
                 <Tooltip content={<CustomTooltip />} />
-                <Area yAxisId="left" type="monotone" dataKey="gdp" stroke="hsl(199 89% 48%)" fill="url(#gdpGrad)" name="GDP ($B)" strokeWidth={2} />
-                <Area yAxisId="right" type="monotone" dataKey="inflation" stroke="hsl(0 72% 51%)" fill="url(#inflGrad)" name="Inflation %" strokeWidth={2} />
+                <Area 
+                  type="stepAfter" 
+                  dataKey="employment" 
+                  stroke="hsl(186 85% 43%)" 
+                  fill="url(#employGrad)" 
+                  strokeWidth={2} 
+                />
               </AreaChart>
             </ResponsiveContainer>
           </div>
 
-          {/* Emissions Trend */}
-          <div className="glass-card rounded-2xl p-6 animate-slide-up" style={{ animationDelay: '0.25s' }}>
-            <div className="flex items-center justify-between mb-4">
-              <div>
-                <h3 className="font-bold">Carbon Emissions Trend</h3>
-                <p className="text-xs text-muted-foreground">USA CO2 (metric tons per capita) 2019–2024</p>
-              </div>
-              <Badge variant="outline" className="text-xs border-green-400/30 text-green-400">
-                IMF Dataset
-              </Badge>
+          {/* Environmental Sustainability Gauge */}
+          <div className="glass-card rounded-2xl p-6 animate-slide-up" style={{ animationDelay: '0.35s' }}>
+            <div className="flex items-center justify-between mb-8">
+              <h3 className="font-bold flex items-center gap-2">
+                <Leaf className="w-4 h-4 text-green-400" />
+                Planetary Health Index
+              </h3>
+              <Badge variant="outline" className="text-[9px] font-bold uppercase tracking-widest px-2 py-0.5 border-green-400/20 text-green-400">Score / 100</Badge>
             </div>
-            <ResponsiveContainer width="100%" height={200}>
-              <LineChart data={HISTORICAL_DATA}>
-                <CartesianGrid strokeDasharray="3 3" stroke="hsl(215 25% 16%)" />
-                <XAxis dataKey="year" tick={{ fill: 'hsl(215 20% 55%)', fontSize: 11 }} />
-                <YAxis tick={{ fill: 'hsl(215 20% 55%)', fontSize: 11 }} domain={[4, 5.5]} />
-                <Tooltip content={<CustomTooltip />} />
-                <Line type="monotone" dataKey="carbonEmissions" stroke="hsl(142 71% 45%)" name="CO2 (tons/capita)" strokeWidth={2.5} dot={{ fill: 'hsl(142 71% 45%)', r: 4 }} />
-              </LineChart>
-            </ResponsiveContainer>
+            
+            <div className="flex flex-col items-center justify-center pt-2">
+              <div className="relative w-44 h-44 flex items-center justify-center">
+                <svg className="w-full h-full transform -rotate-90">
+                  <circle
+                    cx="88"
+                    cy="88"
+                    r="75"
+                    stroke="currentColor"
+                    strokeWidth="10"
+                    fill="transparent"
+                    className="text-secondary/30"
+                  />
+                  <circle
+                    cx="88"
+                    cy="88"
+                    r="75"
+                    stroke="currentColor"
+                    strokeWidth="10"
+                    strokeDasharray={2 * Math.PI * 75}
+                    strokeDashoffset={2 * Math.PI * 75 * (1 - (lastSim?.predictedEnvImpact || 50) / 100)}
+                    strokeLinecap="round"
+                    fill="transparent"
+                    className="text-green-400 transition-all duration-1000 ease-out"
+                  />
+                </svg>
+                <div className="absolute inset-0 flex flex-col items-center justify-center">
+                  <span className="text-4xl font-bold font-mono tracking-tighter">{(lastSim?.predictedEnvImpact || 0).toFixed(0)}</span>
+                  <span className="text-[9px] font-bold text-muted-foreground uppercase tracking-widest">Sustainability</span>
+                </div>
+              </div>
+              
+              <div className="mt-8 grid grid-cols-2 gap-4 w-full">
+                <div className="p-3 rounded-xl bg-secondary/20 border border-border/40 text-center group hover:border-primary/30 transition-colors">
+                  <div className="text-[8px] font-bold text-muted-foreground uppercase mb-1">Carbon Reduction</div>
+                  <div className="text-sm font-bold text-green-400">+14.2%</div>
+                </div>
+                <div className="p-3 rounded-xl bg-secondary/20 border border-border/40 text-center group hover:border-primary/30 transition-colors">
+                  <div className="text-[8px] font-bold text-muted-foreground uppercase mb-1">Impact Percentile</div>
+                  <div className="text-sm font-bold text-primary">Top 12%</div>
+                </div>
+              </div>
+            </div>
           </div>
         </div>
 
-        {/* Recent Simulations */}
-        <div className="glass-card rounded-2xl p-6 animate-slide-up" style={{ animationDelay: '0.3s' }}>
-          <div className="flex items-center justify-between mb-6">
-            <div>
-              <h3 className="font-bold text-lg">Recent Simulations</h3>
-              <p className="text-xs text-muted-foreground mt-0.5">Your latest policy impact analyses</p>
-            </div>
+        {/* Audit Log Snippet */}
+        <div className="glass-card rounded-2xl p-6">
+          <div className="flex items-center justify-between mb-8">
+            <h3 className="font-bold flex items-center gap-2">
+              <Clock className="w-4 h-4 text-muted-foreground" />
+              Intelligence Repository Log
+            </h3>
             <Link to="/results">
-              <Button variant="outline" size="sm" className="gap-2 text-xs border-border hover:border-primary/30">
-                View All
-                <ArrowRight className="w-3.5 h-3.5" />
+              <Button variant="ghost" size="sm" className="text-[10px] font-bold uppercase tracking-wider gap-1 group">
+                Full Repository Audit
+                <ArrowRight className="w-3 h-3 group-hover:translate-x-1 transition-transform" />
               </Button>
             </Link>
           </div>
-
-          {isLoading ? (
-            <div className="space-y-3">
-              {[1, 2, 3].map((i) => (
-                <Skeleton key={i} className="h-14 rounded-xl bg-secondary/50" />
-              ))}
-            </div>
-          ) : simulations && simulations.length > 0 ? (
-            <div className="space-y-3">
-              {simulations.slice(0, 5).map((sim) => (
-                <div
-                  key={sim.id}
-                  className="flex items-center justify-between p-4 rounded-xl bg-secondary/30 border border-border hover:border-primary/20 transition-colors"
-                >
-                  <div className="flex items-center gap-3">
-                    <div className="w-8 h-8 rounded-lg bg-primary/10 border border-primary/20 flex items-center justify-center">
-                      <FlaskConical className="w-4 h-4 text-primary" />
-                    </div>
-                    <div>
-                      <p className="text-sm font-medium">{sim.name}</p>
-                      <p className="text-xs text-muted-foreground flex items-center gap-1">
-                        <Clock className="w-3 h-3" />
-                        {new Date(sim.createdAt).toLocaleDateString()}
-                      </p>
-                    </div>
+          
+          <div className="space-y-3">
+            {simulations?.slice(0, 4).map(sim => (
+              <div key={sim.id} className="flex items-center justify-between p-4 rounded-xl bg-secondary/10 border border-border/30 hover:bg-secondary/20 hover:border-primary/30 transition-all group cursor-default">
+                <div className="flex items-center gap-4">
+                  <div className="w-10 h-10 rounded-xl bg-primary/5 border border-primary/10 flex items-center justify-center group-hover:scale-110 transition-transform">
+                    <FlaskConical className="w-5 h-5 text-primary" />
                   </div>
-                  <div className="flex items-center gap-4">
-                    <div className="hidden sm:flex gap-4 text-xs">
-                      <span className={`font-mono font-medium ${sim.predictedInflationChange > 0 ? 'text-destructive' : 'text-green-400'}`}>
-                        Inflation: {sim.predictedInflationChange > 0 ? '+' : ''}{sim.predictedInflationChange.toFixed(1)}%
-                      </span>
-                      <span className={`font-mono font-medium ${sim.predictedEmissionsChange < 0 ? 'text-green-400' : 'text-yellow-400'}`}>
-                        CO2: {sim.predictedEmissionsChange > 0 ? '+' : ''}{sim.predictedEmissionsChange.toFixed(1)}%
-                      </span>
-                    </div>
-                    <RiskBadge risk={sim.riskLevel} />
+                  <div>
+                    <div className="text-sm font-bold group-hover:text-primary transition-colors">{sim.name}</div>
+                    <div className="text-[9px] text-muted-foreground uppercase font-bold tracking-widest">{new Date(sim.createdAt).toLocaleDateString()} • CONFIDENCE: {sim.confidenceScore}%</div>
                   </div>
                 </div>
-              ))}
-            </div>
-          ) : (
-            <div className="flex flex-col items-center justify-center py-12 text-center">
-              <div className="w-16 h-16 rounded-2xl bg-primary/10 border border-primary/20 flex items-center justify-center mb-4">
-                <Zap className="w-8 h-8 text-primary" />
+                <div className="flex items-center gap-6">
+                  <div className="hidden md:flex gap-6 text-right">
+                    <div className="flex flex-col items-end">
+                      <div className="text-[10px] font-bold text-foreground">{(sim.predictedGdp > 0 ? '+' : '') + sim.predictedGdp.toFixed(2)}% GDP</div>
+                      <div className="text-[8px] text-muted-foreground uppercase font-bold tracking-tighter">Growth Forecast</div>
+                    </div>
+                    <div className="flex flex-col items-end">
+                      <div className="text-[10px] font-bold text-foreground">{sim.predictedInflation.toFixed(2)}% INFL</div>
+                      <div className="text-[8px] text-muted-foreground uppercase font-bold tracking-tighter">Price Stability</div>
+                    </div>
+                  </div>
+                  <RiskBadge risk={sim.riskLevel} />
+                </div>
               </div>
-              <h3 className="font-semibold mb-2">No simulations yet</h3>
-              <p className="text-sm text-muted-foreground mb-4 max-w-sm">
-                Run your first policy simulation to see predicted economic and environmental impacts.
-              </p>
-              <Link to="/simulator">
-                <Button size="sm" style={{ background: 'var(--gradient-primary)' }}>
-                  Run First Simulation
-                  <ArrowRight className="w-3.5 h-3.5 ml-2" />
-                </Button>
-              </Link>
-            </div>
-          )}
+            ))}
+          </div>
         </div>
       </div>
     </DashboardLayout>

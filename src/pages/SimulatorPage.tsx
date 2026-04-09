@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useNavigate } from '@tanstack/react-router'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { blink } from '../lib/blink'
@@ -21,62 +21,70 @@ import {
   CheckCircle,
   Lightbulb,
   Save,
+  Download,
+  Users,
+  Leaf,
+  Smile,
+  DollarSign,
+  Briefcase,
+  Activity,
+  Heart,
 } from 'lucide-react'
 import toast from 'react-hot-toast'
 
-const SIMULATION_ENDPOINT = 'https://66quhbhr.backend.blink.new/predict'
+const BACKEND_URL = 'https://66quhbhr.backend.blink.new'
 
 const DEFAULT_PARAMS: PolicyParams = {
-  fuelTax: 5,
-  transportSubsidy: 10,
-  carbonTax: 25,
-  evSubsidy: 15,
-  gdpGrowth: 2.5,
-  baseInflation: 3.0,
+  taxRate: 20,
+  subsidyAmount: 5,
+  fuelPrice: 3.5,
+  publicSpending: 15,
+  interestRate: 4.5,
+  envRegulation: 50,
 }
 
 const sliderConfig = [
   {
-    key: 'fuelTax' as keyof PolicyParams,
-    label: 'Fuel Tax Increase',
-    description: 'Additional tax on petroleum fuel',
-    min: 0, max: 20, step: 0.5, unit: '%',
+    key: 'taxRate' as keyof PolicyParams,
+    label: 'Corporate Tax Rate',
+    description: 'Percentage of corporate profit taken as tax',
+    min: 0, max: 50, step: 0.5, unit: '%',
     color: 'hsl(199 89% 48%)',
   },
   {
-    key: 'transportSubsidy' as keyof PolicyParams,
-    label: 'Public Transport Subsidy',
-    description: 'Government subsidy for public transit',
+    key: 'subsidyAmount' as keyof PolicyParams,
+    label: 'Industrial Subsidy',
+    description: 'Government financial aid to key sectors',
     min: 0, max: 30, step: 0.5, unit: '%',
     color: 'hsl(142 71% 45%)',
   },
   {
-    key: 'carbonTax' as keyof PolicyParams,
-    label: 'Carbon Tax',
-    description: 'Carbon pricing per metric ton CO2',
-    min: 0, max: 100, step: 1, unit: '$/t',
+    key: 'fuelPrice' as keyof PolicyParams,
+    label: 'Target Fuel Price',
+    description: 'Regulated price per unit of industrial fuel',
+    min: 1, max: 10, step: 0.1, unit: '$',
     color: 'hsl(38 92% 50%)',
   },
   {
-    key: 'evSubsidy' as keyof PolicyParams,
-    label: 'EV Purchase Subsidy',
-    description: 'Subsidy for electric vehicle adoption',
+    key: 'publicSpending' as keyof PolicyParams,
+    label: 'Public Spending',
+    description: 'Budget allocated to infrastructure & services',
     min: 0, max: 50, step: 1, unit: '%',
     color: 'hsl(270 67% 58%)',
   },
   {
-    key: 'gdpGrowth' as keyof PolicyParams,
-    label: 'Baseline GDP Growth',
-    description: 'Current economic growth environment',
-    min: 0, max: 5, step: 0.1, unit: '%',
+    key: 'interestRate' as keyof PolicyParams,
+    label: 'Interest Rate',
+    description: 'Central bank target lending rate',
+    min: 0, max: 15, step: 0.1, unit: '%',
     color: 'hsl(186 85% 43%)',
   },
   {
-    key: 'baseInflation' as keyof PolicyParams,
-    label: 'Baseline Inflation',
-    description: 'Current inflation rate context',
-    min: 0, max: 10, step: 0.1, unit: '%',
-    color: 'hsl(0 72% 51%)',
+    key: 'envRegulation' as keyof PolicyParams,
+    label: 'Env. Regulation',
+    description: 'Stringency of emissions and pollution standards',
+    min: 0, max: 100, step: 1, unit: '',
+    color: 'hsl(160 84% 39%)',
   },
 ]
 
@@ -84,23 +92,42 @@ function ResultMetric({
   label,
   value,
   unit = '%',
-  positive = false,
+  positive = true,
+  icon: Icon,
 }: {
   label: string
   value: number
   unit?: string
   positive?: boolean
+  icon: any
 }) {
   const isGood = positive ? value > 0 : value < 0
+  if (label.includes('Satisfaction') || label.includes('Environmental')) {
+    const scoreColor = value > 75 ? 'text-green-400' : value > 40 ? 'text-yellow-400' : 'text-destructive'
+    return (
+      <div className="glass-card rounded-xl p-4 text-center">
+        <div className="flex items-center justify-center gap-2 text-[10px] text-muted-foreground uppercase font-bold tracking-wider mb-2">
+          <Icon className="w-3.5 h-3.5" />
+          {label}
+        </div>
+        <div className={`text-2xl font-bold font-mono ${scoreColor}`}>
+          {value.toFixed(1)}{unit}
+        </div>
+      </div>
+    )
+  }
+  
   const isNeutral = Math.abs(value) < 0.1
   return (
     <div className="glass-card rounded-xl p-4 text-center">
-      <div className="text-xs text-muted-foreground mb-2">{label}</div>
+      <div className="flex items-center justify-center gap-2 text-[10px] text-muted-foreground uppercase font-bold tracking-wider mb-2">
+        <Icon className="w-3.5 h-3.5" />
+        {label}
+      </div>
       <div className={`text-2xl font-bold font-mono flex items-center justify-center gap-1 ${
         isNeutral ? 'text-muted-foreground' :
         isGood ? 'text-green-400' : 'text-destructive'
       }`}>
-        {isGood && !isNeutral ? <TrendingDown className="w-4 h-4" /> : !isNeutral ? <TrendingUp className="w-4 h-4" /> : null}
         {value > 0 ? '+' : ''}{value.toFixed(2)}{unit}
       </div>
     </div>
@@ -113,68 +140,68 @@ export function SimulatorPage() {
   const queryClient = useQueryClient()
   const [params, setParams] = useState<PolicyParams>(DEFAULT_PARAMS)
   const [result, setResult] = useState<SimulationResult | null>(null)
-  const [simulationName, setSimulationName] = useState('Policy Scenario ' + new Date().toLocaleDateString())
-  const [projectionData, setProjectionData] = useState<SimulationResult['projectionData']>([])
+  const [simulationName, setSimulationName] = useState('Policy Analysis ' + new Date().toLocaleDateString())
 
-  const simulateMutation = useMutation({
+  const predictMutation = useMutation({
     mutationFn: async (policyParams: PolicyParams) => {
-      const response = await fetch(SIMULATION_ENDPOINT, {
+      const response = await fetch(`${BACKEND_URL}/predict`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(policyParams),
       })
-      if (!response.ok) throw new Error('Simulation failed')
+      if (!response.ok) throw new Error('Neural engine timeout')
       return response.json()
     },
     onSuccess: (data) => {
       setResult(data)
-      setProjectionData(data.projectionData || [])
-      toast.success('Simulation complete!')
     },
-    onError: () => {
-      toast.error('Simulation failed. Please try again.')
+    onError: (err: any) => {
+      toast.error(err.message || 'Simulation failed')
     },
   })
 
+  // Real-time updates with debounce
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      predictMutation.mutate(params)
+    }, 400)
+    return () => clearTimeout(timer)
+  }, [params])
+
   const saveMutation = useMutation({
     mutationFn: async () => {
-      if (!result || !user) throw new Error('No result to save')
+      if (!result || !user) throw new Error('No dataset to save')
       await blink.db.simulations.create({
-        id: `sim_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`,
+        id: `sim_${Date.now()}`,
         userId: user.id,
         name: simulationName,
-        fuelTax: params.fuelTax,
-        transportSubsidy: params.transportSubsidy,
-        carbonTax: params.carbonTax,
-        evSubsidy: params.evSubsidy,
-        gdpGrowth: params.gdpGrowth,
-        baseInflation: params.baseInflation,
-        predictedInflationChange: result.inflationChange,
-        predictedEmissionsChange: result.emissionsChange,
-        predictedTransportCostChange: result.transportCostChange,
-        predictedGdpChange: result.gdpChange,
+        taxRate: params.taxRate,
+        subsidyAmount: params.subsidyAmount,
+        fuelPrice: params.fuelPrice,
+        publicSpending: params.publicSpending,
+        interestRate: params.interestRate,
+        envRegulation: params.envRegulation,
+        predictedGdp: result.gdpGrowth,
+        predictedInflation: result.inflation,
+        predictedEmployment: result.employmentRate,
+        predictedEnvImpact: result.envImpact,
+        predictedSatisfaction: result.satisfaction,
         confidenceScore: result.confidenceScore,
         riskLevel: result.riskLevel,
         insights: JSON.stringify(result.insights),
-        projectionData: JSON.stringify(projectionData),
+        projectionData: JSON.stringify(result.projectionData),
         createdAt: new Date().toISOString(),
       })
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['simulations'] })
-      toast.success('Simulation saved!')
+      toast.success('Simulation archived successfully')
       navigate({ to: '/results' })
     },
-    onError: () => {
-      toast.error('Failed to save simulation')
-    },
+    onError: () => toast.error('Cloud storage error. Record not saved.'),
   })
 
-  const updateParam = (key: keyof PolicyParams, value: number) => {
-    setParams((prev) => ({ ...prev, [key]: value }))
-  }
-
-  const riskColors = {
+  const riskColors: any = {
     low: { text: 'text-green-400', bg: 'bg-green-400/10', border: 'border-green-400/20', icon: CheckCircle },
     medium: { text: 'text-yellow-400', bg: 'bg-yellow-400/10', border: 'border-yellow-400/20', icon: AlertTriangle },
     high: { text: 'text-destructive', bg: 'bg-destructive/10', border: 'border-destructive/20', icon: AlertTriangle },
@@ -183,33 +210,37 @@ export function SimulatorPage() {
   return (
     <DashboardLayout>
       <div className="p-6 max-w-7xl mx-auto">
-        {/* Header */}
-        <div className="flex items-center justify-between mb-8">
+        <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4 mb-8 print:hidden">
           <div>
-            <h1 className="text-2xl font-bold mb-1">Policy Simulator</h1>
-            <p className="text-muted-foreground text-sm">Adjust parameters and run ML-powered impact predictions</p>
+            <h1 className="text-2xl font-bold mb-1">Interactive <span className="gradient-text">Policy Laboratory</span></h1>
+            <p className="text-muted-foreground text-sm">Fine-tune economic levers and witness real-time ML projections of national stability.</p>
           </div>
-          <Badge className="bg-primary/10 text-primary border-primary/20 gap-2 px-3 py-1.5">
-            <div className="w-2 h-2 bg-primary rounded-full animate-pulse" />
-            Random Forest Engine
-          </Badge>
+          <div className="flex gap-2">
+            <Button variant="outline" size="sm" onClick={() => window.print()} className="gap-2 border-border">
+              <Download className="w-4 h-4" />
+              Generate Report
+            </Button>
+            <Badge className="bg-primary/10 text-primary border-primary/20 gap-2 px-3 py-1.5 h-9">
+              <div className="w-2 h-2 bg-primary rounded-full animate-pulse" />
+              ML v4.2 Active
+            </Badge>
+          </div>
         </div>
 
         <div className="grid xl:grid-cols-2 gap-8">
-          {/* Left: Policy Parameters */}
-          <div className="space-y-6">
+          <div className="space-y-6 print:hidden">
             <div className="glass-card rounded-2xl p-6 animate-slide-up">
-              <div className="flex items-center gap-3 mb-6">
-                <div className="w-8 h-8 rounded-lg bg-primary/10 border border-primary/20 flex items-center justify-center">
-                  <FlaskConical className="w-4 h-4 text-primary" />
+              <div className="flex items-center gap-3 mb-8">
+                <div className="w-10 h-10 rounded-xl bg-primary/10 border border-primary/20 flex items-center justify-center">
+                  <Activity className="w-5 h-5 text-primary" />
                 </div>
                 <div>
-                  <h2 className="font-bold">Policy Parameters</h2>
-                  <p className="text-xs text-muted-foreground">Configure your policy scenario</p>
+                  <h2 className="font-bold">Neural Policy Controllers</h2>
+                  <p className="text-[10px] text-muted-foreground uppercase font-bold tracking-widest mt-0.5">Input Parameters</p>
                 </div>
               </div>
 
-              <div className="space-y-7">
+              <div className="grid gap-8">
                 {sliderConfig.map((config) => (
                   <PolicySlider
                     key={config.key}
@@ -221,165 +252,109 @@ export function SimulatorPage() {
                     step={config.step}
                     unit={config.unit}
                     color={config.color}
-                    onChange={(val) => updateParam(config.key, val)}
+                    onChange={(val) => setParams(p => ({ ...p, [config.key]: val }))}
                   />
                 ))}
               </div>
             </div>
 
-            {/* Control Buttons */}
-            <div className="flex gap-3">
-              <Button
-                onClick={() => simulateMutation.mutate(params)}
-                disabled={simulateMutation.isPending}
-                className="flex-1 h-11 font-semibold gap-2 transition-all hover:scale-[1.02] active:scale-[0.98]"
-                style={{ background: 'var(--gradient-primary)' }}
-              >
-                {simulateMutation.isPending ? (
-                  <>
-                    <span className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-                    Running ML Model...
-                  </>
-                ) : (
-                  <>
-                    <Play className="w-4 h-4" />
-                    Run Simulation
-                  </>
-                )}
-              </Button>
-              <Button
-                variant="outline"
-                onClick={() => { setParams(DEFAULT_PARAMS); setResult(null) }}
-                className="h-11 w-11 p-0 border-border hover:border-primary/30"
-              >
-                <RotateCcw className="w-4 h-4" />
-              </Button>
-            </div>
+            <Button
+              variant="ghost"
+              onClick={() => setParams(DEFAULT_PARAMS)}
+              className="w-full border border-dashed border-border hover:border-primary/30 text-muted-foreground hover:text-primary transition-all py-6 gap-2"
+            >
+              <RotateCcw className="w-4 h-4" />
+              Restore Global Baseline
+            </Button>
           </div>
 
-          {/* Right: Results */}
           <div className="space-y-6">
             {result ? (
-              <>
-                {/* Predicted Outcomes */}
-                <div className="glass-card rounded-2xl p-6 animate-fade-in">
-                  <div className="flex items-center justify-between mb-5">
-                    <h2 className="font-bold">Predicted Outcomes</h2>
-                    <div className={`flex items-center gap-1.5 text-xs font-medium px-2.5 py-1 rounded-full border ${
-                      riskColors[result.riskLevel]?.text || ''
-                    } ${riskColors[result.riskLevel]?.bg || ''} ${riskColors[result.riskLevel]?.border || ''}`}>
-                      {result.riskLevel === 'low'
-                        ? <CheckCircle className="w-3 h-3" />
-                        : <AlertTriangle className="w-3 h-3" />
-                      }
-                      {result.riskLevel.toUpperCase()} RISK
+              <div className="animate-fade-in space-y-6">
+                <div className="glass-card rounded-2xl p-6 relative overflow-hidden">
+                  <div className="absolute top-4 right-4">
+                    <div className={`flex items-center gap-1.5 text-[10px] font-bold px-3 py-1 rounded-full border ${
+                      riskColors[result.riskLevel]?.text
+                    } ${riskColors[result.riskLevel]?.bg} ${riskColors[result.riskLevel]?.border}`}>
+                      {result.riskLevel.toUpperCase()} FEASIBILITY RISK
+                    </div>
+                  </div>
+                  
+                  <h2 className="font-bold mb-8 flex items-center gap-2">
+                    <FlaskConical className="w-5 h-5 text-primary" />
+                    AI Impact Forecast
+                  </h2>
+
+                  <div className="grid grid-cols-2 md:grid-cols-3 gap-4 mb-8">
+                    <ResultMetric label="GDP Growth" value={result.gdpGrowth} icon={TrendingUp} />
+                    <ResultMetric label="Inflation" value={result.inflation} positive={false} icon={TrendingDown} />
+                    <ResultMetric label="Employment" value={result.employmentRate} icon={Briefcase} />
+                    <ResultMetric label="Env. Quality" value={result.envImpact} unit="/100" icon={Leaf} />
+                    <ResultMetric label="Social Trust" value={result.satisfaction} unit="/100" icon={Smile} />
+                    <div className="glass-card rounded-xl p-4 flex flex-col items-center justify-center">
+                      <div className="text-[10px] text-muted-foreground uppercase tracking-widest mb-1 font-bold">Confidence</div>
+                      <div className="text-2xl font-bold text-primary font-mono">{result.confidenceScore}%</div>
                     </div>
                   </div>
 
-                  <div className="grid grid-cols-2 gap-3 mb-5">
-                    <ResultMetric label="Inflation Change" value={result.inflationChange} />
-                    <ResultMetric label="Transport Cost" value={result.transportCostChange} />
-                    <ResultMetric label="Carbon Emissions" value={result.emissionsChange} positive={false} />
-                    <ResultMetric label="GDP Change" value={result.gdpChange} positive />
-                  </div>
-
-                  {/* Confidence */}
-                  <div className="p-3 rounded-xl bg-secondary/30 border border-border">
-                    <div className="flex items-center justify-between mb-2">
-                      <span className="text-xs font-medium text-muted-foreground">Model Confidence Score</span>
-                      <span className="text-sm font-bold text-primary font-mono">{result.confidenceScore}%</span>
+                  <div className="space-y-2">
+                    <div className="flex justify-between text-[10px] uppercase font-bold text-muted-foreground mb-1">
+                      <span>Model Stability Index</span>
+                      <span>{result.confidenceScore}%</span>
                     </div>
-                    <div className="w-full bg-secondary rounded-full h-2">
-                      <div
-                        className="h-2 rounded-full transition-all duration-700"
-                        style={{
-                          width: `${result.confidenceScore}%`,
-                          background: 'var(--gradient-primary)',
-                        }}
+                    <div className="w-full bg-secondary/50 rounded-full h-1.5 overflow-hidden">
+                      <div 
+                        className="h-full rounded-full transition-all duration-1000 bg-primary"
+                        style={{ width: `${result.confidenceScore}%` }}
                       />
                     </div>
                   </div>
                 </div>
 
-                {/* AI Policy Insights */}
-                <div className="glass-card rounded-2xl p-6 animate-fade-in" style={{ animationDelay: '0.1s' }}>
-                  <div className="flex items-center gap-2 mb-4">
-                    <Lightbulb className="w-4 h-4 text-yellow-400" />
-                    <h2 className="font-bold">ML Policy Insights</h2>
+                <div className="glass-card rounded-2xl p-6 border-yellow-500/10">
+                  <div className="flex items-center gap-2 mb-6">
+                    <Lightbulb className="w-5 h-5 text-yellow-400" />
+                    <h3 className="font-bold">Neural Advisory Network</h3>
                   </div>
                   <div className="space-y-3">
                     {result.insights.map((insight, i) => (
-                      <div key={i} className="flex items-start gap-3 p-3 rounded-xl bg-secondary/30 border border-border">
-                        <Info className="w-4 h-4 text-primary mt-0.5 flex-shrink-0" />
-                        <p className="text-sm text-muted-foreground leading-relaxed">{insight}</p>
+                      <div key={i} className="flex gap-4 p-4 rounded-xl bg-secondary/20 border border-border/40 text-sm leading-relaxed group hover:border-primary/30 transition-colors">
+                        <Info className="w-5 h-5 text-primary shrink-0 group-hover:scale-110 transition-transform" />
+                        <span className="text-muted-foreground group-hover:text-foreground transition-colors">{insight}</span>
                       </div>
                     ))}
                   </div>
                 </div>
 
-                {/* Save Form */}
-                <div className="glass-card rounded-2xl p-6 animate-fade-in" style={{ animationDelay: '0.15s' }}>
-                  <h2 className="font-bold mb-4">Save Simulation</h2>
-                  <div className="space-y-3">
-                    <div>
-                      <Label htmlFor="sim-name" className="text-sm">Simulation Name</Label>
-                      <Input
-                        id="sim-name"
-                        value={simulationName}
-                        onChange={(e) => setSimulationName(e.target.value)}
-                        className="mt-1.5 bg-secondary/50 border-border focus:border-primary/50 h-10"
-                      />
-                    </div>
-                    <Button
-                      onClick={() => saveMutation.mutate()}
+                <div className="glass-card rounded-2xl p-6 print:hidden">
+                  <h3 className="font-bold mb-4">Archive Analysis</h3>
+                  <div className="flex gap-3">
+                    <Input 
+                      placeholder="Analysis name..." 
+                      value={simulationName}
+                      onChange={e => setSimulationName(e.target.value)}
+                      className="bg-secondary/50 border-border focus:border-primary/50"
+                    />
+                    <Button 
+                      onClick={() => saveMutation.mutate()} 
                       disabled={saveMutation.isPending}
-                      variant="outline"
-                      className="w-full h-10 border-primary/30 text-primary hover:bg-primary/10 gap-2"
+                      className="bg-primary text-primary-foreground font-bold gap-2 shrink-0 px-6"
                     >
-                      {saveMutation.isPending ? (
-                        <>
-                          <span className="w-3.5 h-3.5 border-2 border-primary/30 border-t-primary rounded-full animate-spin" />
-                          Saving...
-                        </>
-                      ) : (
-                        <>
-                          <Save className="w-3.5 h-3.5" />
-                          Save to Dashboard
-                        </>
-                      )}
+                      {saveMutation.isPending ? <RotateCcw className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
+                      Archiving...
                     </Button>
                   </div>
                 </div>
-              </>
+              </div>
             ) : (
-              /* Empty State */
-              <div className="glass-card rounded-2xl p-8 flex flex-col items-center justify-center text-center min-h-[400px] animate-fade-in">
-                <div className="w-20 h-20 rounded-2xl bg-primary/10 border border-primary/20 flex items-center justify-center mb-6">
-                  <FlaskConical className="w-10 h-10 text-primary" />
+              <div className="glass-card rounded-2xl p-12 flex flex-col items-center justify-center text-center min-h-[500px]">
+                <div className="w-20 h-20 rounded-3xl bg-primary/5 border border-primary/10 flex items-center justify-center mb-8 animate-pulse">
+                  <Activity className="w-10 h-10 text-primary/30" />
                 </div>
-                <h3 className="text-xl font-bold mb-3">Ready to Simulate</h3>
-                <p className="text-muted-foreground text-sm leading-relaxed max-w-xs mb-6">
-                  Configure your policy parameters using the sliders on the left, then click{' '}
-                  <strong className="text-foreground">Run Simulation</strong> to get ML-powered predictions.
+                <h3 className="text-xl font-bold mb-3 text-foreground/80">Awaiting Neural Signals</h3>
+                <p className="text-muted-foreground text-sm max-w-xs leading-relaxed">
+                  Modify the policy levers on the left to initiate the regression model and generate real-time predictive datasets.
                 </p>
-                <div className="grid grid-cols-2 gap-3 text-xs text-muted-foreground">
-                  <div className="flex items-center gap-2 p-2.5 rounded-lg bg-secondary/30 border border-border">
-                    <div className="w-2 h-2 bg-primary rounded-full" />
-                    Inflation impact
-                  </div>
-                  <div className="flex items-center gap-2 p-2.5 rounded-lg bg-secondary/30 border border-border">
-                    <div className="w-2 h-2 bg-green-400 rounded-full" />
-                    Emissions forecast
-                  </div>
-                  <div className="flex items-center gap-2 p-2.5 rounded-lg bg-secondary/30 border border-border">
-                    <div className="w-2 h-2 bg-yellow-400 rounded-full" />
-                    Transport costs
-                  </div>
-                  <div className="flex items-center gap-2 p-2.5 rounded-lg bg-secondary/30 border border-border">
-                    <div className="w-2 h-2 bg-accent rounded-full" />
-                    GDP projection
-                  </div>
-                </div>
               </div>
             )}
           </div>
