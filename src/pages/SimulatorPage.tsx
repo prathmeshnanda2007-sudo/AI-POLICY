@@ -340,8 +340,17 @@ export function SimulatorPage() {
                       disabled={saveMutation.isPending}
                       className="bg-primary text-primary-foreground font-bold gap-2 shrink-0 px-6"
                     >
-                      {saveMutation.isPending ? <RotateCcw className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
-                      Archiving...
+                      {saveMutation.isPending ? (
+                        <>
+                          <RotateCcw className="w-4 h-4 animate-spin" />
+                          Archiving...
+                        </>
+                      ) : (
+                        <>
+                          <Save className="w-4 h-4" />
+                          Archive Analysis
+                        </>
+                      )}
                     </Button>
                   </div>
                 </div>
