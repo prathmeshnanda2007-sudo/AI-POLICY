@@ -1,7 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import { Link } from '@tanstack/react-router'
 import { ShaderAnimation } from '../components/ui/shader-animation'
-import { SparklesCore } from '../components/ui/sparkles'
 import { Button } from '../components/ui/button'
 import { Badge } from '../components/ui/badge'
 import {
@@ -98,20 +97,6 @@ export function LandingPage() {
       <section className="relative min-h-screen flex flex-col overflow-hidden">
         <ShaderAnimation />
 
-        {/* Sparkles Background Overlay */}
-        <div className="absolute inset-0 w-full h-full z-0 pointer-events-none">
-          <SparklesCore
-            id="tsparticleshero"
-            background="transparent"
-            minSize={0.6}
-            maxSize={1.4}
-            particleDensity={70}
-            className="w-full h-full"
-            particleColor="hsl(199 89% 48%)"
-            speed={0.5}
-          />
-        </div>
-
         {/* Overlay gradient */}
         <div className="absolute inset-0 bg-gradient-to-b from-transparent via-background/20 to-background pointer-events-none z-10" />
 
@@ -180,49 +165,36 @@ export function LandingPage() {
           </div>
 
           {/* Live Policy Preview */}
-          <div className="glass-card rounded-2xl p-6 max-w-2xl w-full neon-border relative">
-            <div className="absolute inset-0 z-0 opacity-30">
-               <SparklesCore
-                id="tsparticlespreview"
-                background="transparent"
-                minSize={0.4}
-                maxSize={1}
-                particleDensity={500}
-                className="w-full h-full"
-                particleColor="#FFFFFF"
-              />
+          <div className="glass-card rounded-2xl p-6 max-w-2xl w-full neon-border">
+            <div className="flex items-center justify-between mb-4">
+              <span className="text-sm font-medium text-muted-foreground">Live Simulation Preview</span>
+              <Badge className="bg-green-500/20 text-green-400 border-green-500/30">
+                <span className="w-1.5 h-1.5 bg-green-400 rounded-full mr-2 inline-block animate-pulse" />
+                Running
+              </Badge>
             </div>
-            <div className="relative z-10">
-              <div className="flex items-center justify-between mb-4">
-                <span className="text-sm font-medium text-muted-foreground">Live Simulation Preview</span>
-                <Badge className="bg-green-500/20 text-green-400 border-green-500/30">
-                  <span className="w-1.5 h-1.5 bg-green-400 rounded-full mr-2 inline-block animate-pulse" />
-                  Running
-                </Badge>
-              </div>
-              <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                {policyTypes.map((policy) => (
-                  <div key={policy.name} className="text-center">
-                    <div className="text-xs text-muted-foreground mb-1">{policy.name}</div>
-                    <div className="text-xl font-bold font-mono" style={{ color: policy.color }}>
-                      {policy.change}
-                    </div>
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+              {policyTypes.map((policy) => (
+                <div key={policy.name} className="text-center">
+                  <div className="text-xs text-muted-foreground mb-1">{policy.name}</div>
+                  <div className="text-xl font-bold font-mono" style={{ color: policy.color }}>
+                    {policy.change}
                   </div>
-                ))}
+                </div>
+              ))}
+            </div>
+            <div className="mt-4 pt-4 border-t border-border grid grid-cols-3 gap-4 text-center">
+              <div>
+                <div className="text-xs text-muted-foreground">Inflation Δ</div>
+                <div className="text-lg font-bold text-destructive font-mono">+1.8%</div>
               </div>
-              <div className="mt-4 pt-4 border-t border-border grid grid-cols-3 gap-4 text-center">
-                <div>
-                  <div className="text-xs text-muted-foreground">Inflation Δ</div>
-                  <div className="text-lg font-bold text-destructive font-mono">+1.8%</div>
-                </div>
-                <div>
-                  <div className="text-xs text-muted-foreground">Emissions Δ</div>
-                  <div className="text-lg font-bold text-green-400 font-mono">-12.4%</div>
-                </div>
-                <div>
-                  <div className="text-xs text-muted-foreground">GDP Δ</div>
-                  <div className="text-lg font-bold text-primary font-mono">+0.6%</div>
-                </div>
+              <div>
+                <div className="text-xs text-muted-foreground">Emissions Δ</div>
+                <div className="text-lg font-bold text-green-400 font-mono">-12.4%</div>
+              </div>
+              <div>
+                <div className="text-xs text-muted-foreground">GDP Δ</div>
+                <div className="text-lg font-bold text-primary font-mono">+0.6%</div>
               </div>
             </div>
           </div>
